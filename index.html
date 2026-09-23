@@ -186,6 +186,48 @@
   .dash-progress-fill { height: 100%; background: var(--data-blue); box-shadow: 0 0 8px var(--data-blue); transition: width .4s ease; }
 
   .dash-section-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px; }
+  .achv-section { margin: 30px 0 6px; }
+  .achv-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+  .achv-head h2 { margin: 0; font-size: 15px; font-family: var(--font-display); font-stretch: condensed; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+  .achv-count { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); }
+  .achv-count b { color: var(--accent); }
+  .achv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 14px; }
+  .achv-badge {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+    padding: 16px 8px 14px; border-radius: 10px; background: var(--paper-raised); border: 1px solid var(--line);
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .achv-badge.unlocked:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .achv-medal { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; flex: none; }
+  .achv-medal svg { width: 26px; height: 26px; position: relative; z-index: 1; }
+  .achv-badge.locked .achv-medal { background: var(--paper-deep); border: 2px dashed var(--line); }
+  .achv-badge.locked .achv-medal svg { color: var(--ink-soft); opacity: 0.4; }
+  .achv-badge.unlocked .achv-medal { background: var(--accent-grad); border: 2px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-soft), 0 0 18px var(--accent-soft); }
+  .achv-badge.unlocked .achv-medal svg { color: var(--accent-ink); }
+  .achv-badge.unlocked .achv-medal::after {
+    content: ""; position: absolute; top: -60%; left: -30%; width: 35%; height: 220%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform: rotate(20deg); animation: achvShine 3.2s ease-in-out infinite;
+  }
+  @keyframes achvShine { 0% { left: -30%; } 55% { left: 120%; } 100% { left: 120%; } }
+  .achv-title { font-family: var(--font-display); font-stretch: condensed; font-weight: 700; font-size: 12px; line-height: 1.25; }
+  .achv-badge.locked .achv-title { color: var(--ink-soft); }
+  .achv-desc { font-size: 10.5px; color: var(--ink-soft); line-height: 1.35; }
+  @media (prefers-reduced-motion: reduce) { .achv-badge.unlocked .achv-medal::after { animation: none; opacity: .5; } }
+
+  .achv-toast-wrap { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 9998; display: flex; flex-direction: column; gap: 8px; pointer-events: none; align-items: center; }
+  .achv-toast {
+    display: flex; align-items: center; gap: 10px; background: var(--paper-raised); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 9px 16px 9px 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+    opacity: 0; transform: translateY(-14px); transition: opacity .35s ease, transform .35s ease; max-width: 88vw;
+  }
+  .achv-toast.show { opacity: 1; transform: translateY(0); }
+  .achv-toast-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-grad); display: flex; align-items: center; justify-content: center; flex: none; }
+  .achv-toast-icon svg { width: 16px; height: 16px; color: var(--accent-ink); }
+  .achv-toast-text { text-align: left; white-space: nowrap; }
+  .achv-toast-text b { display: block; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .achv-toast-text span { font-size: 12.5px; font-weight: 600; }
+
   .dash-nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   @media (max-width: 900px) { .dash-nav-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 560px) { .dash-nav-grid { grid-template-columns: 1fr; } }
@@ -807,6 +849,7 @@
   .sim-cycle-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); line-height: 1.6; }
 </style>
 
+<div class="achv-toast-wrap" id="achvToastWrap"></div>
 <div class="scanline" aria-hidden="true"></div>
 
 <div class="splash-screen" id="splashScreen" role="dialog" aria-label="Загрузка Полевого конспекта" aria-modal="true">
@@ -925,6 +968,14 @@
         <div class="dash-card-head"><span>Симулятор насоса</span><span class="dash-card-arrow">›</span></div>
         <div class="dash-card-sub">Частота, типоразмер, ток и дебит вживую</div>
       </button>
+    </div>
+
+    <div class="achv-section">
+      <div class="achv-head">
+        <h2>Достижения</h2>
+        <span class="achv-count" id="achvCount">0 / 9</span>
+      </div>
+      <div class="achv-grid" id="achvGrid"></div>
     </div>
   </section>
 
@@ -2721,6 +2772,7 @@
       pct.classList.toggle("done", p >= 100);
     });
     renderExamUI();
+    if (window.renderAchievements) window.renderAchievements();
   }
 
   ["scheme", "methods", "cheatsheet"].forEach(function (key) {
@@ -2764,7 +2816,88 @@
     var total = (typeof FAULTS !== "undefined") ? FAULTS.length : 9;
     trVal.textContent = solved + " / " + total;
     trBar.style.width = Math.round(solved / total * 100) + "%";
+    if (window.renderAchievements) window.renderAchievements();
   }
+
+
+  /* ---------- achievements ---------- */
+  (function () {
+    var ICONS = {
+      scheme: '<circle cx="6" cy="18" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="18" cy="13" r="2"/><path d="M7.5 16.5L10.5 8.7M13.3 8.3L16.6 11.6"/>',
+      methods: '<circle cx="12" cy="12" r="7"/><path d="M12 5V3M12 21v-2M5 12H3M21 12h-2M7.5 7.5L6 6M18 18l-1.5-1.5M7.5 16.5L6 18M18 6l-1.5 1.5"/><circle cx="12" cy="12" r="2"/>',
+      cheatsheet: '<path d="M7 3h10a1 1 0 0 1 1 1v16l-6-4-6 4V4a1 1 0 0 1 1-1z"/>',
+      flashcards: '<rect x="3" y="6" width="14" height="16" rx="2" opacity="0.4"/><rect x="7" y="2" width="14" height="16" rx="2"/>',
+      trainer: '<path d="M4 17a8 8 0 0 1 16 0"/><path d="M12 17l4.5-6"/><circle cx="12" cy="17" r="1.4"/>',
+      exam5: '<path d="M12 2.5l2.9 6.6 7.1.7-5.4 4.8 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.8 7.1-.7z" fill="currentColor" stroke="none"/>',
+      nok: '<path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6z"/><path d="M8.5 12l2.3 2.3L16 9"/>',
+      marathon: '<path d="M12 2c-1 3-5 6-5 11a5 5 0 0 0 10 0c0-1.5-.6-2.5-1.2-3.3.1 1.8-1 2.3-1.3 1-.4-1.7 0-4-2.5-8.7z" fill="currentColor" stroke="none"/>',
+      all: '<path d="M2 18h20l-2-9-5 4-3-7-3 7-5-4z" fill="currentColor" stroke="none"/>'
+    };
+
+    var ACHIEVEMENTS = [
+      {id: "scheme", title: "Карта маршрута", desc: "Изучена схема технологического цикла", check: function () { return isSectionDone("scheme"); }},
+      {id: "methods", title: "Знаток способов", desc: "Разобраны все схемы глушения по оборудованию", check: function () { return isSectionDone("methods"); }},
+      {id: "cheatsheet", title: "Шпаргалка наизусть", desc: "Пройдены все регламенты в шпаргалке", check: function () { return isSectionDone("cheatsheet"); }},
+      {id: "flashcards", title: "Коллекционер карточек", desc: "Просмотрены все карточки «вопрос-ответ»", check: function () { return isSectionDone("flashcards"); }},
+      {id: "trainer", title: "Мастер диагностики", desc: "Решены все сценарии тренажёра УЭЦН", check: function () { return isSectionDone("trainer"); }},
+      {id: "exam5", title: "Отличник", desc: "Итоговый экзамен сдан на «5»", check: function () { return !!(profile.exams && profile.exams.all && /^5/.test(profile.exams.all.grade || "")); }},
+      {id: "nok", title: "Готов к НОК", desc: "Пройден тест НОК хотя бы раз", check: function () { return !!(profile.nok && profile.nok.testsDone); }},
+      {id: "marathon", title: "Марафонец", desc: "Серия 10+ верных ответов подряд в марафоне НОК", check: function () { return !!(profile.nok && profile.nok.bestStreak >= 10); }},
+      {id: "all", title: "Универсал участка", desc: "Получены все остальные значки", check: function () {
+        return ACHIEVEMENTS.slice(0, -1).every(function (a) { return a.check(); });
+      }}
+    ];
+
+    if (!profile.achv) profile.achv = {unlocked: []};
+
+    var grid = document.getElementById("achvGrid");
+    var countEl = document.getElementById("achvCount");
+    var toastWrap = document.getElementById("achvToastWrap");
+
+    function showToast(a) {
+      if (!toastWrap) return;
+      var el = document.createElement("div");
+      el.className = "achv-toast";
+      el.innerHTML = '<span class="achv-toast-icon"><svg viewBox="0 0 24 24">' + ICONS[a.id] + '</svg></span>' +
+        '<span class="achv-toast-text"><b>Новое достижение</b><span>' + a.title + '</span></span>';
+      toastWrap.appendChild(el);
+      requestAnimationFrame(function () { el.classList.add("show"); });
+      setTimeout(function () {
+        el.classList.remove("show");
+        setTimeout(function () { el.remove(); }, 450);
+      }, 4200);
+    }
+
+    function renderAchievements() {
+      if (!grid) return;
+      var unlockedNow = ACHIEVEMENTS.filter(function (a) { return a.check(); }).map(function (a) { return a.id; });
+      var prev = profile.achv.unlocked || [];
+      var newly = unlockedNow.filter(function (id) { return prev.indexOf(id) === -1; });
+      if (newly.length || unlockedNow.length !== prev.length) {
+        profile.achv.unlocked = unlockedNow;
+        saveProfile();
+      }
+      newly.forEach(function (id) {
+        var a = ACHIEVEMENTS.filter(function (x) { return x.id === id; })[0];
+        if (a) showToast(a);
+      });
+      grid.innerHTML = "";
+      ACHIEVEMENTS.forEach(function (a) {
+        var ok = unlockedNow.indexOf(a.id) !== -1;
+        var el = document.createElement("div");
+        el.className = "achv-badge " + (ok ? "unlocked" : "locked");
+        el.innerHTML =
+          '<span class="achv-medal"><svg viewBox="0 0 24 24">' + ICONS[a.id] + '</svg></span>' +
+          '<span class="achv-title">' + a.title + '</span>' +
+          '<span class="achv-desc">' + a.desc + '</span>';
+        grid.appendChild(el);
+      });
+      if (countEl) countEl.innerHTML = "<b>" + unlockedNow.length + "</b> / " + ACHIEVEMENTS.length;
+    }
+
+    window.renderAchievements = renderAchievements;
+    renderAchievements();
+  })();
 
   profileNameInput.addEventListener("input", function () {
     profile.name = profileNameInput.value.trim();
@@ -4305,6 +4438,10 @@ var CYCLE_IMAGES = {
       var badge = document.getElementById("nokTestGradeBadge");
       badge.className = "grade-badge grade-" + grade.n;
       badge.textContent = "Оценка: " + grade.label + " (" + pct + "%)";
+      if (!profile.nok) profile.nok = {};
+      profile.nok.testsDone = true;
+      saveProfile();
+      if (window.renderAchievements) window.renderAchievements();
     }
 
     nokTestNextBtn.addEventListener("click", function () {
@@ -4414,6 +4551,10 @@ var CYCLE_IMAGES = {
       document.getElementById("nokMaraFinalScore").textContent = nokMaraCorrect + " / " + nokMaraTotal;
       document.getElementById("nokMaraSummaryNote").textContent =
         "Правильных с первой попытки: " + pct + "%. Лучшая серия подряд: " + nokMaraBest + ".";
+      if (!profile.nok) profile.nok = {};
+      profile.nok.bestStreak = Math.max(profile.nok.bestStreak || 0, nokMaraBest);
+      saveProfile();
+      if (window.renderAchievements) window.renderAchievements();
     });
     nokMaraRestartBtn.addEventListener("click", nokMaraStart);
 
