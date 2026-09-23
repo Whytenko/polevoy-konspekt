@@ -564,7 +564,7 @@
   .tmode.active, .nmode.active { background: var(--accent-grad); border-color: var(--accent); color: var(--accent-ink); }
 
   .diag-layout { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 28px; align-items: start; }
-  @media (max-width: 760px) { .diag-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .diag-layout { grid-template-columns: 1fr; } .well-wrap { position: static; top: auto; max-width: 280px; margin: 0 auto; } }
 
   .well-wrap { position: sticky; top: 12px; }
   .well-wrap svg { width: 100%; height: auto; display: block; }
