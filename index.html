@@ -291,6 +291,25 @@
   .method-card .mbody { padding: 20px 22px 24px; }
   .method-card .mbody p { margin: 0 0 14px; font-size: 14.5px; line-height: 1.62; }
   .method-card .mbody p:last-child { margin-bottom: 0; }
+  .calc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px 16px; margin: 18px 0; }
+  .calc-field { display: flex; flex-direction: column; gap: 5px; }
+  .calc-field span { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  .calc-field small { font-family: var(--font-mono); font-size: 10px; color: var(--accent); text-transform: none; letter-spacing: 0; margin-top: 1px; }
+  .calc-field input, .calc-field select {
+    font-family: var(--font-body); font-size: 13.5px; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 4px; background: var(--paper); color: var(--ink);
+  }
+  .calc-field input:focus, .calc-field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .calc-results-head { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); margin: 22px 0 10px; }
+  .calc-check { font-family: var(--font-mono); font-size: 12.5px; margin-top: 8px; padding: 8px 12px; border-radius: 4px; }
+  .calc-check.ok { background: var(--good-soft); color: var(--good); }
+  .calc-check.warn { background: var(--danger-soft); color: var(--danger); }
+  .calc-cycles { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+  .calc-cycles li {
+    display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px;
+    background: var(--paper-deep); border-radius: 6px; font-size: 13.5px;
+  }
+  .calc-cycles li b { font-family: var(--font-mono); color: var(--accent); font-weight: 700; }
   .method-facts { list-style: none; margin: 16px 0 0; padding: 14px 16px; background: var(--paper-deep); border-radius: 6px; display: grid; gap: 7px; }
   .method-facts li { padding-left: 16px; position: relative; font-size: 13.4px; }
   .method-facts li::before { content: "▸"; position: absolute; left: 0; color: var(--accent); font-size: 11px; top: 2px; }
@@ -866,7 +885,7 @@
       </button>
       <button class="tab dash-card hud-frame" data-panel="quiz">
         <div class="dash-card-head"><span>Тест</span><span class="dash-card-arrow">›</span></div>
-        <div class="dash-card-sub">150 вопросов + итоговый экзамен</div>
+        <div class="dash-card-sub">157 вопросов + итоговый экзамен</div>
       </button>
       <button class="tab dash-card dash-card-accent hud-frame" data-panel="trainer">
         <div class="dash-card-head"><span>Тренажёр диагностики</span><span class="dash-card-arrow">›</span></div>
@@ -1109,6 +1128,62 @@
           <li>Заполнение надпакерного пространства — порциями, с разрядкой каждые 5–10 минут (выпуск газовой «шапки»)</li>
           <li>После заглушения — срыв пакера → полная смена объёма жидкости во всей скважине</li>
         </ul>
+      </div>
+    </div>
+    <div class="method-card" id="glushCalcCard">
+      <div class="mhead">
+        <div><span class="tag">Приложение к приказу № П-158А от 28.03.2024</span><h2>Плотность и объёмы жидкости глушения — расчёт</h2></div>
+        <span class="cite">ρжг · N · V₁…Vₙ</span>
+      </div>
+      <div class="mbody">
+        <p>Три связанные формулы регламента: сначала плотность жидкости глушения (ρжг), затем число циклов закачки (N), затем объём каждого цикла. Ниже — рабочий калькулятор: меняете цифры своей скважины, всё пересчитывается сразу.</p>
+
+        <div class="anchor-box">
+          <div class="eyebrow">Как это выглядит в утверждённом документе</div>
+          <p>Скважина 1094Г, куст 109Б, Ватьеганское месторождение. При K=1,05 и Pпл=16,99 МПа расчётная (минимальная) плотность ЖГ — около 0,89 г/см³, к применению принята доступная 1,02 г/см³. Объём цикла глушения: V₁=9 м³, V₂=25 м³ (завершающий). Подставьте эти же H, Hинт и ΔLинт ниже — калькулятор выдаст те же ρжг и Ргст.</p>
+        </div>
+
+        <p><b>Формула плотности:</b> ρжг = K·Pпл ⁄ ((Hинт − ΔLинт)·9,81) × 1000, г/см³</p>
+        <p><b>Коэффициент К (таблица 2):</b> 10% до 1200 м; 5–7% от 1200 до 2500 м (не выше +1,5/+2,5 МПа репрессии); 5–7% от 2500 до 3500 м (не выше +3,5 МПа репрессии).</p>
+        <p><b>Число циклов:</b> N = H ⁄ (Hсп + Hхвост), с округлением в бо́льшую сторону.</p>
+
+        <div class="calc-grid">
+          <label class="calc-field"><span>H — глубина по стволу до забоя, м</span><input type="number" id="gcH" value="3525" step="1"></label>
+          <label class="calc-field"><span>Hсп — глубина спуска насоса/лифта, м</span><input type="number" id="gcHsp" value="2390" step="1"></label>
+          <label class="calc-field"><span>Hхвост — длина хвостовика, м</span><input type="number" id="gcHhvost" value="0" step="1"></label>
+          <label class="calc-field"><span>Hинт — длина до середины интервала перфорации, м</span><input type="number" id="gcHint" value="2470" step="1"></label>
+          <label class="calc-field"><span>ΔLинт — удлинение на глубине интервала, м</span><input type="number" id="gcDLint" value="426.1" step="0.1"></label>
+          <label class="calc-field"><span>K — коэффициент противодавления<br><small id="gcKhint">рекоменд. 1,05–1,07</small></span><input type="number" id="gcK" value="1.05" step="0.01"></label>
+          <label class="calc-field"><span>Pпл — пластовое давление, МПа</span><input type="number" id="gcPpl" value="16.99" step="0.01"></label>
+          <label class="calc-field"><span>Диаметр ЭК, мм (лимит Vзап)</span>
+            <select id="gcEK">
+              <option value="146">146 (Vзап ≤ 1 м³)</option>
+              <option value="168">168 (Vзап ≤ 2 м³)</option>
+              <option value="178">178 (Vзап ≤ 2 м³)</option>
+            </select>
+          </label>
+          <label class="calc-field"><span>Sэк — объём 1 п.м. ЭК ниже насоса, л/м<br><small>пример, уточните по Прил.№13</small></span><input type="number" id="gcSek" value="15" step="0.5"></label>
+          <label class="calc-field"><span>Sнкт — объём 1 п.м. НКТ, л/м<br><small>пример, уточните по Прил.№13</small></span><input type="number" id="gcSnkt" value="3" step="0.5"></label>
+          <label class="calc-field"><span>Sхвост — объём 1 п.м. между ЭК и хвостовиком, л/м</span><input type="number" id="gcShvost" value="15" step="0.5"></label>
+        </div>
+
+        <div class="calc-results-head">Результат</div>
+        <div class="dash-grid">
+          <div class="dash-stat">
+            <div class="dash-stat-head"><span>Плотность ЖГ (мин.)</span></div>
+            <div class="dash-stat-value" id="gcGamma">— г/см³</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-head"><span>Число циклов N</span></div>
+            <div class="dash-stat-value" id="gcN">—</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-head"><span>Ргст (проверка)</span></div>
+            <div class="dash-stat-value" id="gcPgst">— МПа</div>
+          </div>
+        </div>
+        <div id="gcCheck" class="calc-check"></div>
+        <ul class="calc-cycles" id="gcCycles"></ul>
       </div>
     </div>
   </section>
@@ -1670,7 +1745,7 @@
 
   <!-- ================= QUIZ ================= -->
   <section id="quiz" class="panel" role="tabpanel">
-    <p class="intro">150 вопросов вперемешку по всем регламентам участка — факты и рабочие ситуации. Порядок вопросов и вариантов меняется при каждом прохождении. Ответили неверно — попробуйте ещё раз тут же, правильный вариант подсветится, когда угадаете.</p>
+    <p class="intro">157 вопросов вперемешку по всем регламентам участка — факты и рабочие ситуации. Порядок вопросов и вариантов меняется при каждом прохождении. Ответили неверно — попробуйте ещё раз тут же, правильный вариант подсветится, когда угадаете.</p>
 
     <div class="section-progress hud-frame" id="examReadiness">
       <div class="section-progress-head"><span>Готовность к итоговому экзамену</span><span class="section-progress-pct" id="examReadinessPct">0 / 5</span></div>
@@ -1689,7 +1764,7 @@
     <div class="exam-grid" id="examGrid"></div>
 
     <div class="deck-controls">
-      <button class="chip" data-qcat="all" aria-pressed="true">Все · 150</button>
+      <button class="chip" data-qcat="all" aria-pressed="true">Все · 157</button>
       <button class="chip" data-qcat="glush" aria-pressed="false">Глушение</button>
       <button class="chip" data-qcat="uecn" aria-pressed="false">УЭЦН</button>
       <button class="chip" data-qcat="vnr" aria-pressed="false">Вывод на режим</button>
@@ -3070,6 +3145,13 @@
     {cat:"glush", q:"Пробы на КВЧ по окончании промывки забоя показали превышение более 100 мг/л. Что делают в этом случае?", opts:["Делают отметку в деле скважины для изменения параметров последующих промывок","Останавливают ремонт скважины до выяснения причин","Заменяют бригаду, проводившую промывку"], correct:0, note:""},
     {cat:"glush", q:"За сколько часов до окончания промывки забоя ремонтная организация обязана вызвать представителя Заказчика для отбора проб на КВЧ?", opts:["За 1 час","За 2 часа","За 4 часа"], correct:1, note:""},
     {cat:"glush", scenario:true, q:"Бригада ведёт обратную промывку, проходка прекратилась, переходят на комбинированный способ (прямая промывка). На сколько максимум разгружают вес допускаемой трубы в этом случае?", opts:["Не более чем на 2-3 тонны","Не более чем на 5 тонн","Не более чем на 1 тонну"], correct:2, note:""},
+    {cat:"glush", q:"От чего зависит коэффициент противодавления на пласт K при расчёте плотности жидкости глушения?", opts:["От диаметра эксплуатационной колонны","От глубины скважины (интервала перфорации)","От типа глубинно-насосного оборудования"], correct:1, note:"До 1200 м — 10%, от 1200 до 3500 м — 5–7%, таблица 2 регламента."},
+    {cat:"glush", q:"Как рассчитывается число циклов глушения N по формуле регламента?", opts:["N = H / (Hсп + Hхвост), с округлением вверх","N = H × Hсп, с округлением вниз","N всегда равно диаметру ЭК в дюймах"], correct:0, note:"Нецелое значение всегда округляется в большую сторону."},
+    {cat:"glush", q:"По какой формуле считают объём первого цикла V₁, если циклов ровно два?", opts:["V₁ = (H − Hсп − Hхвост) × Sэк / 1000", "V₁ = Hсп × (Sэк + Sнкт) / 1000 + Vзап", "V₁ = K × Pпл / (Hинт × 9,81)"], correct:0, note:"Завершающий (второй) цикл считается уже по другой формуле — с учётом Sнкт."},
+    {cat:"glush", q:"Чем отличается формула завершающего цикла глушения от формулы промежуточных циклов?", opts:["Ничем, формула одна и та же для всех циклов", "В завершающем цикле дополнительно учитывается объём НКТ (Sнкт)", "Завершающий цикл всегда считается без Vзап"], correct:1, note:"Промежуточные циклы — просто Hсп×Sэк; завершающий добавляет вытеснение по НКТ."},
+    {cat:"glush", q:"Чем ограничен запас жидкости глушения Vзап на технологические расходы и потери?", opts:["10% от расчётного объёма цикла, но не более 1–2 м³ в зависимости от диаметра ЭК", "Ровно 1 м³ независимо от диаметра ЭК", "50% от расчётного объёма цикла"], correct:0, note:"Не более 1 м³ для ЭК=146 мм, 2 м³ для ЭК=168/178 мм."},
+    {cat:"glush", q:"Для чего после расчёта плотности ЖГ дополнительно проверяют гидростатическое давление столба жидкости (Ргст)?", opts:["Чтобы убедиться, что Ргст не превышает Pпл", "Чтобы убедиться, что Ргст создаёт нужную репрессию на пласт, то есть не меньше Pпл", "Проверка не требуется, это формальность"], correct:1, note:"Если Ргст меньше пластового давления — плотности не хватает, K или ρжг нужно пересчитать."},
+    {cat:"glush", q:"На скважине 1094Г (Ватьеганское) при K=1,05 и Pпл=16,99 МПа расчётная плотность ЖГ вышла ниже 1,0 г/см³ — легче пресной воды. Как поступают в такой ситуации на практике?", opts:["Глушат чистым газом вместо жидкости", "К применению принимают ближайшую доступную по факту плотность жидкости, не ниже расчётной", "Увеличивают K до максимально возможного значения"], correct:1, note:"В примере расчётные ~0,89 г/см³ округлили до доступной 1,02 г/см³."},
     // Дополнительные вопросы — УЭЦН
     {cat:"uecn", q:"С какой дискретностью замеров по давлению должны быть оснащены ТМС на УЭЦН для скважин опорной сети?", opts:["0,01 МПа","0,001 МПа","0,1 МПа"], correct:1, note:""},
     {cat:"uecn", q:"При превышении какого показателя КВЧ в скважинной продукции проводится инструментальная отбивка текущего забоя?", opts:["50 мг/л","150 мг/л","100 мг/л"], correct:2, note:""},
@@ -4332,6 +4414,108 @@
 
   startQuiz(quizPool());
   renderSectionProgress();
+
+  /* ---------- glushenie calculator: density + cycles + volumes ---------- */
+  (function () {
+    var elH = document.getElementById("gcH");
+    if (!elH) return;
+    var elHsp = document.getElementById("gcHsp");
+    var elHhvost = document.getElementById("gcHhvost");
+    var elHint = document.getElementById("gcHint");
+    var elDLint = document.getElementById("gcDLint");
+    var elK = document.getElementById("gcK");
+    var elPpl = document.getElementById("gcPpl");
+    var elEK = document.getElementById("gcEK");
+    var elSek = document.getElementById("gcSek");
+    var elSnkt = document.getElementById("gcSnkt");
+    var elShvost = document.getElementById("gcShvost");
+    var elKhint = document.getElementById("gcKhint");
+    var elGamma = document.getElementById("gcGamma");
+    var elN = document.getElementById("gcN");
+    var elPgst = document.getElementById("gcPgst");
+    var elCheck = document.getElementById("gcCheck");
+    var elCycles = document.getElementById("gcCycles");
+
+    function num(el) { return parseFloat(el.value) || 0; }
+
+    function fmt(v, d) { return v.toLocaleString("ru-RU", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+
+    function vzapCap(ek) { return ek === "146" ? 1 : 2; }
+
+    function vzap(vgl, ek) { return Math.min(vgl * 0.10, vzapCap(ek)); }
+
+    function kHintFor(hint) {
+      if (hint <= 1200) return "рекоменд. 10%, т.е. K≈1,10";
+      if (hint <= 2500) return "рекоменд. 5–7%, т.е. K≈1,05–1,07";
+      return "рекоменд. 5–7%, т.е. K≈1,05–1,07 (лимит репрессии 3,5 МПа)";
+    }
+
+    function renderGlushCalc() {
+      var H = num(elH), Hsp = num(elHsp), Hhvost = num(elHhvost);
+      var Hint = num(elHint), dLint = num(elDLint), K = num(elK), Ppl = num(elPpl);
+      var ek = elEK.value, Sek = num(elSek), Snkt = num(elSnkt), Shvost = num(elShvost);
+
+      elKhint.textContent = kHintFor(Hint);
+
+      var HintEff = Hint - dLint;
+      var gamma = HintEff > 0 ? (K * Ppl) / (HintEff * 9.81) * 1000 : 0;
+      var Pgst = HintEff > 0 ? gamma * HintEff / 100 : 0;
+      elGamma.textContent = fmt(gamma, 2) + " г/см³";
+      elPgst.textContent = fmt(Pgst, 2) + " МПа";
+
+      if (Ppl > 0) {
+        var excess = Pgst - Ppl;
+        if (excess >= 0) {
+          elCheck.className = "calc-check ok";
+          elCheck.textContent = "Ргст ≥ Pпл — репрессия создана, требование регламента выполнено (excess " + fmt(excess, 2) + " МПа).";
+        } else {
+          elCheck.className = "calc-check warn";
+          elCheck.textContent = "Ргст < Pпл — плотности не хватает на репрессию, пересчитайте K или плотность жидкости.";
+        }
+      } else {
+        elCheck.className = "calc-check";
+        elCheck.textContent = "";
+      }
+
+      var denom = Hsp + Hhvost;
+      var N = denom > 0 ? Math.max(1, Math.ceil(H / denom)) : 1;
+      elN.textContent = N;
+
+      elCycles.innerHTML = "";
+      function addCycle(label, vol) {
+        var li = document.createElement("li");
+        li.innerHTML = "<span>" + label + "</span><b>" + fmt(vol, 2) + " м³</b>";
+        elCycles.appendChild(li);
+      }
+
+      if (N <= 1) {
+        var vgl = (Hsp * (Sek + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
+        addCycle("Vmax — единственный цикл", vgl + vzap(vgl, ek));
+      } else if (N === 2) {
+        var vgl1 = (H - Hsp - Hhvost) * Sek / 1000;
+        addCycle("V₁ — первый цикл", vgl1);
+        var vgl2 = (Hsp * (Sek + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
+        addCycle("V₂ — завершающий цикл", vgl2 + vzap(vgl2, ek));
+      } else {
+        var vglMid = Hsp * Sek / 1000;
+        var vzMid = vzap(vglMid, ek);
+        for (var k = 1; k <= N - 2; k++) {
+          addCycle("V" + k + " — цикл", vglMid + vzMid);
+        }
+        var vglNm1 = (H - (N - 1) * Hsp) * Sek / 1000;
+        addCycle("V" + (N - 1) + " — предпоследний цикл", vglNm1 + vzap(vglNm1, ek));
+        var vglN = (Hsp * (Sek + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
+        addCycle("V" + N + " — завершающий цикл", vglN + vzap(vglN, ek));
+      }
+    }
+
+    [elH, elHsp, elHhvost, elHint, elDLint, elK, elPpl, elEK, elSek, elSnkt, elShvost].forEach(function (el) {
+      el.addEventListener("input", renderGlushCalc);
+      el.addEventListener("change", renderGlushCalc);
+    });
+
+    renderGlushCalc();
+  })();
 
   /* ---------- pump simulator ---------- */
   (function () {
