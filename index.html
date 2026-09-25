@@ -4865,7 +4865,8 @@ var CYCLE_IMAGES = {
       elCycles.innerHTML = "";
       function addCycle(label, vol) {
         var li = document.createElement("li");
-        li.innerHTML = "<span>" + label + "</span><b>" + fmt(vol, 2) + " м³</b>";
+        var rounded = Math.ceil(vol);
+        li.innerHTML = "<span>" + label + "</span><b>" + rounded + " м³ <span style=\"color:var(--ink-soft);font-weight:400;font-size:11px;\">(точно " + fmt(vol, 2) + ")</span></b>";
         elCycles.appendChild(li);
       }
 
