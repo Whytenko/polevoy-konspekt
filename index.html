@@ -333,6 +333,9 @@
   .formula-block .fml { font-family: var(--font-mono); color: var(--ink); display: block; margin: 2px 0; }
   .formula-block .fml b { color: var(--accent); }
   .formula-legend { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+  .proc-list.fml-list { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .proc-list.fml-list .proc-item, .proc-list.fml-list .proc-slot { font-family: var(--font-mono); font-size: 13px; }
+  .proc-list.fml-list .proc-slot { min-width: 34px; text-align: center; }
   .gallery-note { font-size: 12px; color: var(--ink-soft); margin: 10px 0 22px; line-height: 1.5; }
 
   /* ---------- methods (full-width diagrams) ---------- */
@@ -954,7 +957,7 @@
       </button>
       <button class="tab dash-card hud-frame" data-panel="flashcards">
         <div class="dash-card-head"><span>Карточки</span><span class="dash-card-arrow">›</span></div>
-        <div class="dash-card-sub">99 карточек вопрос-ответ</div>
+        <div class="dash-card-sub">104 карточки вопрос-ответ</div>
       </button>
       <button class="tab dash-card hud-frame" data-panel="quiz">
         <div class="dash-card-head"><span>Тест</span><span class="dash-card-arrow">›</span></div>
@@ -1441,6 +1444,21 @@
               <span class="fml">Vзаверш. = [Hсп·(Sэк+Sнкт) + Hхвост·(Sэк2+Sхвост)] ⁄ 1000 + Vзап <span style="color:var(--ink-soft)">— завершающий цикл</span></span>
             </div>
             <div class="formula-legend">K — коэфф. противодавления (10% / 5–7%, табл. 2); Vзап — запас 10%, не более 1 м³ (ЭК 146 мм) / 2 м³ (ЭК 168/178 мм). Живой калькулятор с этими формулами — во вкладке «Способы глушения».</div>
+
+            <h3 style="margin-top:22px;">Собери формулу</h3>
+            <p style="font-size:12.8px;color:var(--ink-soft);margin:0 0 12px;">Кликайте кусочки формулы по порядку, слева направо — так, как она записана.</p>
+            <div class="deck-controls" id="fmlPicker"></div>
+            <div class="proc-layout">
+              <div class="proc-col">
+                <div class="kicker">Перемешанные части</div>
+                <div id="fmlShuffled" class="proc-list fml-list"></div>
+              </div>
+              <div class="proc-col">
+                <div class="kicker">Собранная формула</div>
+                <div id="fmlOrdered" class="proc-list fml-list ordered"></div>
+              </div>
+            </div>
+            <p class="proc-status" id="fmlStatus"></p>
           </div>
           <div class="group">
             <h3>Циклы глушения</h3>
@@ -1814,7 +1832,7 @@
     </div>
 
     <div class="deck-controls">
-      <button class="chip" data-cat="all" aria-pressed="true">Все · 99</button>
+      <button class="chip" data-cat="all" aria-pressed="true">Все · 104</button>
       <button class="chip" data-cat="glush" aria-pressed="false">Глушение</button>
       <button class="chip" data-cat="uecn" aria-pressed="false">УЭЦН</button>
       <button class="chip" data-cat="vnr" aria-pressed="false">Вывод на режим</button>
@@ -3036,6 +3054,12 @@
 
   /* ---------- flashcard data ---------- */
   var CARDS = [
+    // Глушение / промывка — формулы
+    {cat:"glush", q:"Формула плотности жидкости глушения (ρжг)?", a:"ρжг = K·Pпл / ((Hинт − ΔLинт)·9,81) × 1000, г/см³"},
+    {cat:"glush", q:"Формула числа циклов глушения (N)?", a:"N = H / (Hсп + Hхвост), с округлением в бо́льшую сторону"},
+    {cat:"glush", q:"Формула объёма первого цикла V₁ (при N=2)?", a:"V₁ = (H − Hсп − Hхвост)·Sэк / 1000"},
+    {cat:"glush", q:"Формула объёма завершающего цикла V₂?", a:"V₂ = [Hсп·(Sэк+Sнкт) + Hхвост·(Sэк2+Sхвост)] / 1000 + Vзап"},
+    {cat:"glush", q:"Чем ограничен Vзап (запас жидкости глушения)?", a:"10% от расчётного объёма цикла, но не более 1 м³ (ЭК 146 мм) / 2 м³ (ЭК 168–178 мм)"},
     // Глушение / промывка
     {cat:"glush", q:"На какое давление и время опрессовывают НКТ перед глушением ГНО?", a:"4,0 МПа, выдержка 5 мин, допустимое падение — не более 0,5 МПа"},
     {cat:"glush", q:"За сколько часов до переезда бригады ТКРС скважина должна быть заглушена?", a:"Не позднее чем за 6 часов"},
@@ -4651,6 +4675,91 @@ var CYCLE_IMAGES = {
     });
   })();
 
+
+
+  /* ---------- glushenie: "собери формулу" (proc-item style) ---------- */
+  (function () {
+    var fmlPicker = document.getElementById("fmlPicker");
+    if (!fmlPicker) return;
+
+    var FORMULA_TASKS = [
+      {id: "density", title: "Плотность жидкости глушения (ρжг)", steps: ["ρжг =", "K · Pпл", "÷", "(Hинт − ΔLинт) · 9,81", "× 1000"]},
+      {id: "cycles", title: "Число циклов глушения (N)", steps: ["N =", "H", "÷", "(Hсп + Hхвост)"]},
+      {id: "v1", title: "Объём первого цикла (V₁, при N=2)", steps: ["V₁ =", "(H − Hсп − Hхвост)", "× Sэк", "÷ 1000"]},
+      {id: "v2", title: "Объём завершающего цикла (V₂)", steps: ["V₂ =", "Hсп · (Sэк + Sнкт)", "+ Hхвост · (Sэк2 + Sхвост)", "÷ 1000", "+ Vзап"]}
+    ];
+
+    var fmlShuffledEl = document.getElementById("fmlShuffled");
+    var fmlOrderedEl = document.getElementById("fmlOrdered");
+    var fmlStatusEl = document.getElementById("fmlStatus");
+    var fmlCurrent = null, fmlDone = 0, fmlMistakes = 0;
+
+    function fmlRender() {
+      var indexed = fmlCurrent.steps.map(function (s, i) { return {s: s, i: i}; });
+      var shuffled = shuffleArr(indexed);
+      fmlShuffledEl.innerHTML = "";
+      shuffled.forEach(function (item) {
+        var btn = document.createElement("button");
+        btn.className = "proc-item";
+        btn.textContent = item.s;
+        btn.addEventListener("click", function () { fmlPickStep(item.i, btn); });
+        fmlShuffledEl.appendChild(btn);
+      });
+      fmlOrderedEl.innerHTML = "";
+      for (var k = 0; k < fmlCurrent.steps.length; k++) {
+        var slot = document.createElement("div");
+        slot.className = "proc-slot";
+        fmlOrderedEl.appendChild(slot);
+      }
+      fmlStatusEl.textContent = "Кликните первую часть формулы.";
+    }
+
+    function fmlPickStep(idx, btn) {
+      if (btn.disabled) return;
+      if (idx === fmlDone) {
+        btn.disabled = true;
+        btn.classList.add("done");
+        var slot = fmlOrderedEl.children[fmlDone];
+        slot.textContent = fmlCurrent.steps[idx];
+        slot.classList.add("filled");
+        fmlDone++;
+        if (fmlDone >= fmlCurrent.steps.length) {
+          fmlStatusEl.textContent = fmlMistakes
+            ? "Формула собрана верно, ошибок по пути: " + fmlMistakes + "."
+            : "Формула собрана верно с первой попытки!";
+        } else {
+          fmlStatusEl.textContent = "Частей собрано: " + fmlDone + " из " + fmlCurrent.steps.length + ".";
+        }
+      } else {
+        fmlMistakes++;
+        btn.classList.add("wrong");
+        setTimeout(function () { btn.classList.remove("wrong"); }, 400);
+      }
+    }
+
+    function fmlPick(task) {
+      fmlCurrent = task;
+      fmlDone = 0;
+      fmlMistakes = 0;
+      document.querySelectorAll("#fmlPicker .chip").forEach(function (c) {
+        c.classList.toggle("active", c.dataset.fml === task.id);
+        c.setAttribute("aria-pressed", c.dataset.fml === task.id ? "true" : "false");
+      });
+      fmlRender();
+    }
+
+    FORMULA_TASKS.forEach(function (task) {
+      var btn = document.createElement("button");
+      btn.className = "chip";
+      btn.dataset.fml = task.id;
+      btn.setAttribute("aria-pressed", "false");
+      btn.textContent = task.title;
+      btn.addEventListener("click", function () { fmlPick(task); });
+      fmlPicker.appendChild(btn);
+    });
+
+    fmlPick(FORMULA_TASKS[0]);
+  })();
 
   startQuiz(quizPool());
   renderSectionProgress();
