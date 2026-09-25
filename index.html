@@ -1264,8 +1264,9 @@
               <option value="178">178 (Vзап ≤ 2 м³)</option>
             </select>
           </label>
-          <label class="calc-field"><span>Sэк — объём 1 п.м. ЭК ниже насоса, л/м<br><small>пример, уточните по Прил.№13</small></span><input type="number" id="gcSek" value="15" step="0.5"></label>
-          <label class="calc-field"><span>Sнкт — объём 1 п.м. НКТ, л/м<br><small>пример, уточните по Прил.№13</small></span><input type="number" id="gcSnkt" value="3" step="0.5"></label>
+          <label class="calc-field"><span>Sэк — объём 1 п.м. ЭК (труба), л/м<br><small>Прил.№13, стр.76–78</small></span><input type="number" id="gcSek" value="13.27" step="0.01"></label>
+          <label class="calc-field"><span>Sэк1 — объём кольцевого простр. ЭК/НКТ73, л/м<br><small>Прил.№13, стр.76–78</small></span><input type="number" id="gcSek1" value="9.09" step="0.01"></label>
+          <label class="calc-field"><span>Sнкт — объём 1 п.м. НКТ-73 (гладкие), л/м<br><small>Прил.№13, стр.76</small></span><input type="number" id="gcSnkt" value="3.02" step="0.01"></label>
           <label class="calc-field"><span>Sхвост — объём 1 п.м. между ЭК и хвостовиком, л/м</span><input type="number" id="gcShvost" value="15" step="0.5"></label>
         </div>
 
@@ -4796,6 +4797,7 @@ var CYCLE_IMAGES = {
     var elPpl = document.getElementById("gcPpl");
     var elEK = document.getElementById("gcEK");
     var elSek = document.getElementById("gcSek");
+    var elSek1 = document.getElementById("gcSek1");
     var elSnkt = document.getElementById("gcSnkt");
     var elShvost = document.getElementById("gcShvost");
     var elKhint = document.getElementById("gcKhint");
@@ -4813,6 +4815,16 @@ var CYCLE_IMAGES = {
 
     function vzap(vgl, ek) { return Math.min(vgl * 0.10, vzapCap(ek)); }
 
+    // Приложение №13 регламента (стр.76-78): объём 1 п.м. трубы ЭК (8мм стенка)
+    // и объём 1 п.м. кольцевого пространства ЭК/НКТ-73 (тот же ряд таблицы)
+    var EK_FULL = {"146": 13.27, "168": 17.16, "178": 20.56};
+    var EK_ANNULUS_NKT73 = {"146": 9.09, "168": 12.97, "178": 16.38};
+
+    function applyEK(ek) {
+      if (EK_FULL[ek] !== undefined) elSek.value = EK_FULL[ek];
+      if (EK_ANNULUS_NKT73[ek] !== undefined) elSek1.value = EK_ANNULUS_NKT73[ek];
+    }
+
     function kHintFor(hint) {
       if (hint <= 1200) return "рекоменд. 10%, т.е. K≈1,10";
       if (hint <= 2500) return "рекоменд. 5–7%, т.е. K≈1,05–1,07";
@@ -4822,7 +4834,7 @@ var CYCLE_IMAGES = {
     function renderGlushCalc() {
       var H = num(elH), Hsp = num(elHsp), Hhvost = num(elHhvost);
       var Hint = num(elHint), dLint = num(elDLint), K = num(elK), Ppl = num(elPpl);
-      var ek = elEK.value, Sek = num(elSek), Snkt = num(elSnkt), Shvost = num(elShvost);
+      var ek = elEK.value, Sek = num(elSek), Sek1 = num(elSek1), Snkt = num(elSnkt), Shvost = num(elShvost);
 
       elKhint.textContent = kHintFor(Hint);
 
@@ -4858,12 +4870,12 @@ var CYCLE_IMAGES = {
       }
 
       if (N <= 1) {
-        var vgl = (Hsp * (Sek + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
+        var vgl = (Hsp * (Sek1 + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
         addCycle("Vmax — единственный цикл", vgl + vzap(vgl, ek));
       } else if (N === 2) {
         var vgl1 = (H - Hsp - Hhvost) * Sek / 1000;
         addCycle("V₁ — первый цикл", vgl1);
-        var vgl2 = (Hsp * (Sek + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
+        var vgl2 = (Hsp * (Sek1 + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
         addCycle("V₂ — завершающий цикл", vgl2 + vzap(vgl2, ek));
       } else {
         var vglMid = Hsp * Sek / 1000;
@@ -4873,15 +4885,16 @@ var CYCLE_IMAGES = {
         }
         var vglNm1 = (H - (N - 1) * Hsp) * Sek / 1000;
         addCycle("V" + (N - 1) + " — предпоследний цикл", vglNm1 + vzap(vglNm1, ek));
-        var vglN = (Hsp * (Sek + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
+        var vglN = (Hsp * (Sek1 + Snkt) + Hhvost * (Sek + Shvost)) / 1000;
         addCycle("V" + N + " — завершающий цикл", vglN + vzap(vglN, ek));
       }
     }
 
-    [elH, elHsp, elHhvost, elHint, elDLint, elK, elPpl, elEK, elSek, elSnkt, elShvost].forEach(function (el) {
+    [elH, elHsp, elHhvost, elHint, elDLint, elK, elPpl, elEK, elSek, elSek1, elSnkt, elShvost].forEach(function (el) {
       el.addEventListener("input", renderGlushCalc);
       el.addEventListener("change", renderGlushCalc);
     });
+    elEK.addEventListener("change", function () { applyEK(elEK.value); renderGlushCalc(); });
 
     var wellSearch = document.getElementById("gcWellSearch");
     var wellList = document.getElementById("gcWellList");
@@ -4904,10 +4917,11 @@ var CYCLE_IMAGES = {
         elDLint.value = w.dL;
         elPpl.value = w.Ppl;
         elEK.value = String(w.ek);
+        applyEK(String(w.ek));
         var kHint = w.Hint <= 1200 ? 1.10 : 1.05;
         elK.value = kHint;
         wellStatus.className = "calc-well-status found";
-        wellStatus.textContent = "\u041d\u0430\u0439\u0434\u0435\u043d\u043e: \u0441\u043a\u0432. " + w.w + ", \u043a\u0443\u0441\u0442 " + w.k + " \u2014 H=" + w.H + " \u043c, H\u0441\u043f=" + w.Hsp + " \u043c, P\u043f\u043b=" + w.Ppl + " \u041c\u041f\u0430 (\u0434\u0430\u043d\u043d\u044b\u0435 \u0422\u0420, \u0421\u044d\u043a/S\u043d\u043a\u0442 \u043d\u0438\u0436\u0435 \u2014 \u043f\u0440\u0438\u043c\u0435\u0440\u043d\u044b\u0435).";
+        wellStatus.textContent = "\u041d\u0430\u0439\u0434\u0435\u043d\u043e: \u0441\u043a\u0432. " + w.w + ", \u043a\u0443\u0441\u0442 " + w.k + " \u2014 H=" + w.H + " \u043c, H\u0441\u043f=" + w.Hsp + " \u043c, P\u043f\u043b=" + w.Ppl + " \u041c\u041f\u0430 (\u0434\u0430\u043d\u043d\u044b\u0435 \u0422\u0420; S\u044d\u043a/S\u044d\u043a1 \u2014 \u043f\u043e \u041f\u0440\u0438\u043b.\u211613 \u0440\u0435\u0433\u043b\u0430\u043c\u0435\u043d\u0442\u0430).";
         renderGlushCalc();
       }
 
