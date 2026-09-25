@@ -1904,7 +1904,7 @@
       </div>
       <button class="nav-btn" id="examOverallBtn" data-exam-start="all" disabled>Начать экзамен</button>
     </div>
-    <div class="exam-topics-label">Экзамены по отдельным темам — тоже один раз каждый</div>
+    <div class="exam-topics-label">Экзамены по отдельным темам — можно пересдавать сколько угодно</div>
     <div class="exam-grid" id="examGrid"></div>
 
     <div class="deck-controls">
@@ -2877,7 +2877,11 @@
       {id: "cheatsheet", title: "Шпаргалка наизусть", desc: "Пройдены все регламенты в шпаргалке", check: function () { return isSectionDone("cheatsheet"); }},
       {id: "flashcards", title: "Коллекционер карточек", desc: "Просмотрены все карточки «вопрос-ответ»", check: function () { return isSectionDone("flashcards"); }},
       {id: "trainer", title: "Мастер диагностики", desc: "Решены все сценарии тренажёра УЭЦН", check: function () { return isSectionDone("trainer"); }},
-      {id: "exam5", title: "Отличник", desc: "Итоговый экзамен сдан на «5»", check: function () { return !!(profile.exams && profile.exams.all && /^5/.test(profile.exams.all.grade || "")); }},
+      {id: "exam5", title: "Отличник", desc: "Итоговый экзамен сдан на «5»", check: function () {
+        var hist = ((profile.examHistory && profile.examHistory.all) || []).slice();
+        if (profile.exams && profile.exams.all) hist.push(profile.exams.all);
+        return hist.some(function (r) { return /^5/.test(r.grade || ""); });
+      }},
       {id: "nok", title: "Готов к НОК", desc: "Пройден тест НОК хотя бы раз", check: function () { return !!(profile.nok && profile.nok.testsDone); }},
       {id: "marathon", title: "Марафонец", desc: "Серия 10+ верных ответов подряд в марафоне НОК", check: function () { return !!(profile.nok && profile.nok.bestStreak >= 10); }},
       {id: "all", title: "Универсал участка", desc: "Получены все остальные значки", check: function () {
@@ -2960,15 +2964,15 @@
     var exams = profile.exams || {};
     var examKeys = Object.keys(exams);
     if (examKeys.length) {
-      lines.push("— СДАННЫЕ ЭКЗАМЕНЫ (официальный результат) —");
+      lines.push("— СДАННЫЕ ЭКЗАМЕНЫ (последняя попытка) —");
       if (exams.all) {
-        lines.push("Итоговый (все темы): " + exams.all.score + "/" + exams.all.total + " (" + exams.all.pct + "%), оценка " + exams.all.grade + " — " + exams.all.date);
+        lines.push("Итоговый (все темы): " + exams.all.score + "/" + exams.all.total + " (" + exams.all.pct + "%), оценка " + exams.all.grade + " — " + exams.all.date + (examAttempts("all").length > 1 ? " [попытка №" + examAttempts("all").length + "]" : ""));
       } else {
         lines.push("Итоговый (все темы): не сдан");
       }
       Object.keys(QUIZ_CAT_LABEL).forEach(function (cat) {
         if (exams[cat]) {
-          lines.push(QUIZ_CAT_LABEL[cat] + ": " + exams[cat].score + "/" + exams[cat].total + " (" + exams[cat].pct + "%), оценка " + exams[cat].grade + " — " + exams[cat].date);
+          lines.push(QUIZ_CAT_LABEL[cat] + ": " + exams[cat].score + "/" + exams[cat].total + " (" + exams[cat].pct + "%), оценка " + exams[cat].grade + " — " + exams[cat].date + (examAttempts(cat).length > 1 ? " [попытка №" + examAttempts(cat).length + "]" : ""));
         }
       });
     } else {
@@ -3506,6 +3510,12 @@ var CYCLE_IMAGES = {
     return key === "all" ? "по всем темам" : "«" + QUIZ_CAT_LABEL[key] + "»";
   }
 
+  function examAttempts(key) {
+    var h = (profile.examHistory && profile.examHistory[key]) || [];
+    if (!h.length && profile.exams && profile.exams[key]) return [profile.exams[key]];
+    return h;
+  }
+
   function renderExamUI() {
     if (!examOverallBtn) return;
     var exams = profile.exams || {};
@@ -3529,14 +3539,18 @@ var CYCLE_IMAGES = {
       examOverall.className = "exam-overall done";
       examOverallTitle.textContent = "Итоговый экзамен сдан";
       examOverallDesc.textContent = exams.all.date + " — результат " + exams.all.score + "/" + exams.all.total +
-        " (" + exams.all.pct + "%), оценка " + exams.all.grade + ". Пересдача недоступна.";
-      examOverallBtn.style.display = "none";
+        " (" + exams.all.pct + "%), оценка " + exams.all.grade + ". Попыток: " + examAttempts("all").length +
+        ". Можно пересдать — в отчёт идёт последняя попытка.";
+      examOverallBtn.textContent = "Пересдать экзамен";
+      examOverallBtn.style.display = "inline-block";
+      examOverallBtn.disabled = !allSectionsDone;
     } else {
       examOverall.className = "exam-overall";
       examOverallTitle.textContent = "Итоговый экзамен";
-      examOverallDesc.textContent = EXAM_FINAL_SIZE + " случайных вопросов по всем темам. " +
+      examOverallDesc.textContent = EXAM_FINAL_SIZE + " случайных вопросов по всем темам — каждый раз новый набор. " +
         (allSectionsDone ? "Все разделы пройдены — экзамен доступен." : "Откроется после того, как будут пройдены все разделы (сейчас " + doneSections.length + " из " + SECTION_DEFS.length + ").") +
-        " Проходится один раз — по итогам обучения. Результат попадает в отчёт, пересдача недоступна.";
+        " Можно пересдавать сколько угодно раз — в отчёт попадает последняя попытка.";
+      examOverallBtn.textContent = "Начать экзамен";
       examOverallBtn.style.display = "inline-block";
       examOverallBtn.disabled = !allSectionsDone;
     }
@@ -3548,8 +3562,9 @@ var CYCLE_IMAGES = {
       var card = document.createElement("div");
       card.className = "exam-card" + (result ? " done" : "");
       var head = '<div class="exam-card-head"><strong>' + QUIZ_CAT_LABEL[cat] + '</strong><span class="exam-card-count">' + count + ' вопр.</span></div>';
+      var attemptsN = examAttempts(cat).length;
       var body = result
-        ? '<div class="exam-card-status">Сдан ' + result.date + ' — ' + result.score + '/' + result.total + ' (' + result.pct + '%), оценка ' + result.grade + '</div>'
+        ? '<div class="exam-card-status">Сдан ' + result.date + ' — ' + result.score + '/' + result.total + ' (' + result.pct + '%), оценка ' + result.grade + (attemptsN > 1 ? ' · попыток: ' + attemptsN : '') + '</div><button class="nav-btn ghost-variant" data-exam-start="' + cat + '">Пересдать</button>'
         : '<div class="exam-card-status">не сдан</div><button class="nav-btn ghost-variant" data-exam-start="' + cat + '">Начать</button>';
       card.innerHTML = head + body;
       examGrid.appendChild(card);
@@ -3561,7 +3576,6 @@ var CYCLE_IMAGES = {
   }
 
   function startExam(key) {
-    if (profile.exams && profile.exams[key]) return;
     if (key === "all") {
       var missing = SECTION_DEFS.filter(function (s) { return !isSectionDone(s.key); }).map(function (s) { return s.label; });
       if (missing.length) {
@@ -3576,7 +3590,10 @@ var CYCLE_IMAGES = {
       profileHint.classList.add("warn");
       return;
     }
-    var ok = window.confirm("Экзамен " + examLabel(key) + " можно пройти только один раз на этом устройстве — результат нельзя будет пересдать. Начать?");
+    var again = !!(profile.exams && profile.exams[key]);
+    var ok = window.confirm(again
+      ? "Пересдать экзамен " + examLabel(key) + "? Новый результат заменит текущий в отчёте, прежние попытки сохранятся в истории."
+      : "Начать экзамен " + examLabel(key) + "? Результат попадёт в отчёт; при желании его можно будет пересдать.");
     if (!ok) return;
     examMode = key;
     examFlag.style.display = "inline";
@@ -3753,6 +3770,10 @@ var CYCLE_IMAGES = {
     if (examMode) {
       var finishedExamKey = examMode;
       if (!profile.exams) profile.exams = {};
+      if (!profile.examHistory) profile.examHistory = {};
+      var examHist = examAttempts(finishedExamKey).slice();
+      examHist.push(result);
+      profile.examHistory[finishedExamKey] = examHist.slice(-20);
       profile.exams[finishedExamKey] = result;
       saveProfile();
       renderDashboard();
@@ -3762,7 +3783,7 @@ var CYCLE_IMAGES = {
       renderExamUI();
       retryWrongBtn.style.display = "none";
       restartBtn.style.display = "none";
-      summaryNote.textContent = "Это был экзамен " + examLabel(finishedExamKey) + " — результат зафиксирован в профиле и пересдаче не подлежит. Скопируйте отчёт и отправьте его в АФС.";
+      summaryNote.textContent = "Это был экзамен " + examLabel(finishedExamKey) + " (попытка №" + examHist.length + ") — результат зафиксирован в профиле. Пересдать можно кнопкой в блоке экзаменов выше; в отчёт идёт последняя попытка. Скопируйте отчёт и отправьте его в АФС.";
     } else {
       profile.quiz = result;
       saveProfile();
