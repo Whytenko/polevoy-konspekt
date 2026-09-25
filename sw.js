@@ -1,4 +1,4 @@
-var CACHE_NAME = "polevoy-konspekt-v4";
+var CACHE_NAME = "polevoy-konspekt-v5";
 var CORE_ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (event) {
