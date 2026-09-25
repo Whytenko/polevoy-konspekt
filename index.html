@@ -860,9 +860,44 @@
   .sim-cycle-fill.draining { background: var(--accent); box-shadow: 0 0 10px var(--accent) inset; }
   .sim-cycle-info { flex: 1; }
   .sim-cycle-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); line-height: 1.6; }
+
+  .gate-back {
+    position: fixed; inset: 0; z-index: 10002; display: none; align-items: center; justify-content: center;
+    background: rgba(5,6,8,0.82); padding: 16px;
+  }
+  .gate-back.open { display: flex; }
+  .gate-box {
+    width: 100%; max-width: 380px; background: var(--paper-raised); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 20px 20px 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.6);
+  }
+  .gate-title { font-family: var(--font-display); font-stretch: condensed; font-weight: 700; font-size: 20px; margin: 0 0 6px; }
+  .gate-desc { font-size: 13px; color: var(--ink-soft); line-height: 1.45; margin: 0 0 14px; }
+  .gate-input {
+    width: 100%; font-family: var(--font-mono); font-size: 16px; padding: 11px 12px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--paper); color: var(--ink); letter-spacing: 0.08em;
+  }
+  .gate-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .gate-input:disabled { opacity: .45; }
+  .gate-msg { min-height: 34px; margin-top: 10px; font-size: 12.5px; line-height: 1.4; color: var(--ink-soft); }
+  .gate-msg.err { color: var(--danger); font-weight: 600; }
+  .gate-msg.lock { color: var(--danger); font-weight: 600; }
+  .gate-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+  .gate-actions .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
 </style>
 
 <div class="achv-toast-wrap" id="achvToastWrap"></div>
+<div class="gate-back" id="gateBack" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <div class="gate-box">
+    <h3 class="gate-title" id="gateTitle">Выгрузка отчёта в Excel</h3>
+    <p class="gate-desc" id="gateDesc">Отчёт выдаётся только по паролю — его знает наставник / АФС. Три неверные попытки блокируют выгрузку на 24 часа.</p>
+    <input type="password" class="gate-input" id="gateInput" placeholder="Пароль" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Пароль для выгрузки отчёта">
+    <div class="gate-msg" id="gateMsg" aria-live="polite"></div>
+    <div class="gate-actions">
+      <button class="nav-btn ghost-variant" id="gateCancel" type="button">Отмена</button>
+      <button class="nav-btn" id="gateOk" type="button">Выгрузить</button>
+    </div>
+  </div>
+</div>
 <div class="scanline" aria-hidden="true"></div>
 
 <div class="splash-screen" id="splashScreen" role="dialog" aria-label="Загрузка Полевого конспекта" aria-modal="true">
@@ -1948,7 +1983,7 @@
         <div class="summary-actions">
           <button class="nav-btn ghost-variant" id="retryWrongBtn" style="display:none;">Повторить ошибки</button>
           <button class="nav-btn" id="restartBtn">Пройти заново</button>
-          <button class="report-link" id="downloadReportBtnQuiz">Скопировать отчёт ⧉</button>
+          <button class="report-link" id="downloadReportBtnQuiz">Отчёт в Excel (по паролю) ⤓</button>
         </div>
       </div>
     </div>
@@ -2148,7 +2183,7 @@
             <div class="dash" id="faultDash"></div>
           </div>
 
-          <div class="solved-counter"><span id="solvedCounter">Решено сценариев: 0</span> <button class="report-link" id="downloadReportBtnTrainer" style="margin-left:10px;">Скопировать отчёт ⧉</button></div>
+          <div class="solved-counter"><span id="solvedCounter">Решено сценариев: 0</span> <button class="report-link" id="downloadReportBtnTrainer" style="margin-left:10px;">Отчёт в Excel (по паролю) ⤓</button></div>
 
           <div class="diag-step" id="diagStepDiagnosis">
             <div class="kicker">шаг 1 · диагноз</div>
@@ -2937,6 +2972,9 @@
     }
 
     window.renderAchievements = renderAchievements;
+    window.achievementsList = function () {
+      return ACHIEVEMENTS.map(function (a) { return {title: a.title, desc: a.desc, ok: a.check()}; });
+    };
     renderAchievements();
   })();
 
@@ -2953,102 +2991,420 @@
   });
   renderDashboard();
 
-  function buildReportText() {
-    var lines = [];
-    lines.push("ОТЧЁТ ОБ ОБУЧЕНИИ — Полевой конспект ЛУКОЙЛ-Западная Сибирь");
-    lines.push("Сформирован: " + new Date().toLocaleString("ru-RU"));
-    lines.push("");
-    lines.push("Практикант: " + (profile.name || "не указано"));
-    lines.push("Группа / куст: " + (profile.group || "не указано"));
-    lines.push("");
-    var exams = profile.exams || {};
-    var examKeys = Object.keys(exams);
-    if (examKeys.length) {
-      lines.push("— СДАННЫЕ ЭКЗАМЕНЫ (последняя попытка) —");
-      if (exams.all) {
-        lines.push("Итоговый (все темы): " + exams.all.score + "/" + exams.all.total + " (" + exams.all.pct + "%), оценка " + exams.all.grade + " — " + exams.all.date + (examAttempts("all").length > 1 ? " [попытка №" + examAttempts("all").length + "]" : ""));
-      } else {
-        lines.push("Итоговый (все темы): не сдан");
+  /* ---------- protected report export (Excel) ---------- */
+  var GATE_KEY = "lzs_report_gate_v1";
+  var GATE_SALT = "lzs-report-v1|";
+  var GATE_HASH = "027e38dc97052c7b27467cfc38b8e3023ce9302941d0a88e00b0f7e154de8286";
+  var GATE_MAX_FAILS = 3;
+  var GATE_LOCK_MS = 24 * 60 * 60 * 1000;
+
+  function sha256hex(str) {
+    var K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+    var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    function ror(x, n) { return (x >>> n) | (x << (32 - n)); }
+    var bytes = new TextEncoder().encode(str);
+    var l = bytes.length;
+    var padLen = ((l + 9 + 63) >> 6) << 6;
+    var buf = new Uint8Array(padLen);
+    buf.set(bytes);
+    buf[l] = 0x80;
+    var bitLen = l * 8;
+    var hi = Math.floor(bitLen / 0x100000000), lo = bitLen >>> 0;
+    buf[padLen - 8] = (hi >>> 24) & 255; buf[padLen - 7] = (hi >>> 16) & 255; buf[padLen - 6] = (hi >>> 8) & 255; buf[padLen - 5] = hi & 255;
+    buf[padLen - 4] = (lo >>> 24) & 255; buf[padLen - 3] = (lo >>> 16) & 255; buf[padLen - 2] = (lo >>> 8) & 255; buf[padLen - 1] = lo & 255;
+    var w = new Array(64);
+    for (var off = 0; off < padLen; off += 64) {
+      for (var i = 0; i < 16; i++) {
+        w[i] = (buf[off + 4 * i] << 24) | (buf[off + 4 * i + 1] << 16) | (buf[off + 4 * i + 2] << 8) | buf[off + 4 * i + 3];
       }
-      Object.keys(QUIZ_CAT_LABEL).forEach(function (cat) {
-        if (exams[cat]) {
-          lines.push(QUIZ_CAT_LABEL[cat] + ": " + exams[cat].score + "/" + exams[cat].total + " (" + exams[cat].pct + "%), оценка " + exams[cat].grade + " — " + exams[cat].date + (examAttempts(cat).length > 1 ? " [попытка №" + examAttempts(cat).length + "]" : ""));
+      for (i = 16; i < 64; i++) {
+        var s0 = ror(w[i - 15], 7) ^ ror(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+        var s1 = ror(w[i - 2], 17) ^ ror(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      var a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (i = 0; i < 64; i++) {
+        var S1 = ror(e, 6) ^ ror(e, 11) ^ ror(e, 25);
+        var ch = (e & f) ^ (~e & g);
+        var t1 = (h + S1 + ch + K[i] + w[i]) | 0;
+        var S0 = ror(a, 2) ^ ror(a, 13) ^ ror(a, 22);
+        var maj = (a & b) ^ (a & c) ^ (b & c);
+        var t2 = (S0 + maj) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(function (x) { return ("00000000" + (x >>> 0).toString(16)).slice(-8); }).join("");
+  }
+
+  var CRC_TABLE = (function () {
+    var t = [];
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+
+  function crc32(bytes) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function concatBytes(chunks) {
+    var n = 0;
+    chunks.forEach(function (c) { n += c.length; });
+    var out = new Uint8Array(n), o = 0;
+    chunks.forEach(function (c) { out.set(c, o); o += c.length; });
+    return out;
+  }
+
+  function le16(v) { return [v & 255, (v >>> 8) & 255]; }
+  function le32(v) { return [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]; }
+
+  function zipStore(files) {
+    var enc = new TextEncoder();
+    var chunks = [], central = [], offset = 0;
+    files.forEach(function (f) {
+      var nameB = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+      var local = [].concat(le32(0x04034b50), le16(20), le16(0x0800), le16(0), le16(0), le16(0x21), le32(crc), le32(size), le32(size), le16(nameB.length), le16(0));
+      chunks.push(new Uint8Array(local), nameB, f.data);
+      var cd = [].concat(le32(0x02014b50), le16(20), le16(20), le16(0x0800), le16(0), le16(0), le16(0x21), le32(crc), le32(size), le32(size), le16(nameB.length), le16(0), le16(0), le16(0), le16(0), le32(0), le32(offset));
+      central.push(new Uint8Array(cd), nameB);
+      offset += local.length + nameB.length + size;
+    });
+    var cdSize = 0;
+    central.forEach(function (c) { cdSize += c.length; });
+    var end = [].concat(le32(0x06054b50), le16(0), le16(0), le16(files.length), le16(files.length), le32(cdSize), le32(offset), le16(0));
+    return concatBytes(chunks.concat(central, [new Uint8Array(end)]));
+  }
+
+  function xmlEsc(s) {
+    return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function colName(i) {
+    var s = "";
+    i++;
+    while (i > 0) {
+      var m = (i - 1) % 26;
+      s = String.fromCharCode(65 + m) + s;
+      i = Math.floor((i - 1) / 26);
+    }
+    return s;
+  }
+
+  function sheetXml(rows, widths) {
+    var x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    if (widths && widths.length) {
+      x += "<cols>";
+      widths.forEach(function (w, i) { x += '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; });
+      x += "</cols>";
+    }
+    x += "<sheetData>";
+    rows.forEach(function (row, r) {
+      x += '<row r="' + (r + 1) + '">';
+      row.forEach(function (cell, c) {
+        if (cell === null || cell === undefined || cell === "") return;
+        var ref = colName(c) + (r + 1);
+        var bold = false, val = cell;
+        if (typeof cell === "object") { bold = !!cell.b; val = cell.v; }
+        var st = bold ? ' s="1"' : "";
+        if (typeof val === "number" && isFinite(val)) {
+          x += '<c r="' + ref + '"' + st + "><v>" + val + "</v></c>";
+        } else {
+          x += '<c r="' + ref + '"' + st + ' t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(val) + "</t></is></c>";
         }
       });
-    } else {
-      lines.push("— ЭКЗАМЕНЫ — ни один экзамен ещё не сдан");
-    }
-    lines.push("");
+      x += "</row>";
+    });
+    x += "</sheetData></worksheet>";
+    return x;
+  }
+
+  function buildXlsx(sheets) {
+    var enc = new TextEncoder();
+    var NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+    var RNS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    var files = [];
+    var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>';
+    sheets.forEach(function (s, i) {
+      ct += '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+    });
+    ct += "</Types>";
+    files.push({name: "[Content_Types].xml", data: enc.encode(ct)});
+    files.push({name: "_rels/.rels", data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + RNS + '/officeDocument" Target="xl/workbook.xml"/></Relationships>')});
+    var wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="' + NS + '" xmlns:r="' + RNS + '"><sheets>';
+    var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+    sheets.forEach(function (s, i) {
+      wb += '<sheet name="' + xmlEsc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>';
+      rels += '<Relationship Id="rId' + (i + 1) + '" Type="' + RNS + '/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>';
+    });
+    wb += "</sheets></workbook>";
+    rels += '<Relationship Id="rId' + (sheets.length + 1) + '" Type="' + RNS + '/styles" Target="styles.xml"/></Relationships>';
+    files.push({name: "xl/workbook.xml", data: enc.encode(wb)});
+    files.push({name: "xl/_rels/workbook.xml.rels", data: enc.encode(rels)});
+    files.push({name: "xl/styles.xml", data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="' + NS + '"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')});
+    sheets.forEach(function (s, i) {
+      files.push({name: "xl/worksheets/sheet" + (i + 1) + ".xml", data: enc.encode(sheetXml(s.rows, s.widths))});
+    });
+    return zipStore(files);
+  }
+
+  function buildReportSheets() {
+    function B(v) { return {v: v, b: true}; }
+    var exams = profile.exams || {};
+    var examKeys = ["all"].concat(Object.keys(QUIZ_CAT_LABEL));
+    function examName(key) { return key === "all" ? "Итоговый (все темы)" : QUIZ_CAT_LABEL[key]; }
+
+    var s1 = [];
+    s1.push([B("ОТЧЁТ ОБ ОБУЧЕНИИ — Полевой конспект ЛУКОЙЛ-Западная Сибирь")]);
+    s1.push(["Сформирован", new Date().toLocaleString("ru-RU")]);
+    s1.push(["Практикант", profile.name || "не указано"]);
+    s1.push(["Группа / куст", profile.group || "не указано"]);
+    s1.push([]);
+    s1.push([B("Экзамены (последняя попытка)")]);
+    s1.push([B("Экзамен"), B("Баллы"), B("Всего"), B("%"), B("Оценка"), B("Дата"), B("Попыток")]);
+    examKeys.forEach(function (key) {
+      var r = exams[key];
+      if (r) s1.push([examName(key), r.score, r.total, r.pct, r.grade, r.date, examAttempts(key).length]);
+      else if (key === "all") s1.push([examName(key), "не сдан"]);
+    });
+    s1.push([]);
+    s1.push([B("Тренировочный тест (последняя попытка, не официальная)")]);
     if (profile.quiz) {
-      lines.push("— тренировочный тест (последняя попытка, не официальная) —");
-      lines.push("Результат: " + profile.quiz.score + " / " + profile.quiz.total + " (" + profile.quiz.pct + "%)");
-      lines.push("Оценка: " + profile.quiz.grade);
-      lines.push("Дата прохождения: " + profile.quiz.date);
-      if (profile.quiz.cats && profile.quiz.cats.length) {
-        lines.push("По темам:");
-        profile.quiz.cats.forEach(function (c) { lines.push("  " + c.label + ": " + c.correct + "/" + c.total); });
-      }
+      s1.push([B("Баллы"), B("Всего"), B("%"), B("Оценка"), B("Дата")]);
+      s1.push([profile.quiz.score, profile.quiz.total, profile.quiz.pct, profile.quiz.grade, profile.quiz.date]);
     } else {
-      lines.push("— тренировочный тест — попыток не было");
+      s1.push(["попыток не было"]);
     }
-    lines.push("");
-    if (profile.trainer && profile.trainer.solvedIds && profile.trainer.solvedIds.length) {
-      lines.push("— ТРЕНАЖЁР ДИАГНОСТИКИ УЭЦН —");
-      lines.push("Решено сценариев: " + profile.trainer.solvedIds.length + " из " + FAULTS.length);
-      lines.push("Всего попыток: " + (profile.trainer.attempts || profile.trainer.solvedIds.length));
-      lines.push("Типы отказов: " + profile.trainer.solvedIds.map(function (id) {
+    s1.push([]);
+    s1.push([B("Разделы конспекта"), B("Готовность, %")]);
+    SECTION_DEFS.forEach(function (s) { s1.push([s.label, sectionPct(s.key)]); });
+    s1.push([]);
+    s1.push([B("Тренажёр диагностики УЭЦН")]);
+    var solved = (profile.trainer && profile.trainer.solvedIds) ? profile.trainer.solvedIds : [];
+    s1.push(["Решено сценариев", solved.length, "из", FAULTS.length]);
+    s1.push(["Всего попыток", (profile.trainer && profile.trainer.attempts) || solved.length]);
+    if (solved.length) {
+      s1.push(["Типы отказов", solved.map(function (id) {
         var f = FAULTS.filter(function (x) { return x.id === id; })[0];
         return f ? f.short : id;
-      }).join(", "));
-    } else {
-      lines.push("— ТРЕНАЖЁР ДИАГНОСТИКИ УЭЦН — сценарии ещё не решались");
+      }).join(", ")]);
     }
-    return lines.join("\n");
+    s1.push([]);
+    s1.push([B("Подготовка к НОК")]);
+    s1.push(["Тест НОК пройден", (profile.nok && profile.nok.testsDone) ? "да" : "нет"]);
+    s1.push(["Лучшая серия в марафоне", (profile.nok && profile.nok.bestStreak) || 0]);
+    if (window.achievementsList) {
+      var al = window.achievementsList();
+      var got = al.filter(function (a) { return a.ok; }).length;
+      s1.push([]);
+      s1.push([B("Достижения"), B(got + " / " + al.length)]);
+      al.forEach(function (a) { s1.push([a.title, a.ok ? "получено" : "—"]); });
+    }
+
+    var s2 = [[B("Экзамен"), B("№ попытки"), B("Дата"), B("Баллы"), B("Всего"), B("%"), B("Оценка")]];
+    var anyHist = false;
+    examKeys.forEach(function (key) {
+      examAttempts(key).forEach(function (r, i) {
+        anyHist = true;
+        s2.push([examName(key), i + 1, r.date, r.score, r.total, r.pct, r.grade]);
+      });
+    });
+    if (!anyHist) s2.push(["Экзамены ещё не сдавались"]);
+
+    var s3 = [];
+    function catBlock(title, cats) {
+      s3.push([B(title)]);
+      s3.push([B("Тема"), B("Верно"), B("Всего"), B("%")]);
+      cats.forEach(function (c) { s3.push([c.label, c.correct, c.total, c.total ? Math.round(c.correct / c.total * 100) : 0]); });
+      s3.push([]);
+    }
+    if (exams.all && exams.all.cats && exams.all.cats.length) catBlock("Итоговый экзамен — по темам", exams.all.cats);
+    if (profile.quiz && profile.quiz.cats && profile.quiz.cats.length) catBlock("Тренировочный тест — по темам", profile.quiz.cats);
+    if (!s3.length) s3.push(["Данных по темам пока нет"]);
+
+    return [
+      {name: "Сводка", rows: s1, widths: [48, 14, 10, 8, 16, 22, 10]},
+      {name: "История экзаменов", rows: s2, widths: [30, 12, 22, 10, 10, 8, 16]},
+      {name: "По темам", rows: s3, widths: [36, 10, 10, 8]}
+    ];
   }
 
-  function legacyCopy(text) {
+  function reportHint(ok, text) {
+    profileHint.textContent = text;
+    profileHint.classList.remove(ok ? "warn" : "ok");
+    profileHint.classList.add(ok ? "ok" : "warn");
+  }
+
+  function saveReportViaLink(blob, fname) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    reportHint(true, "Отчёт выгружен в Excel: " + fname);
+  }
+
+  function deliverReport(blob, fname) {
+    var ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+    var mobile = /iPhone|iPad|iPod|Android/i.test(ua) || (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (mobile && typeof File !== "undefined" && navigator.canShare && navigator.share) {
+      try {
+        var file = new File([blob], fname, {type: blob.type});
+        if (navigator.canShare({files: [file]})) {
+          navigator.share({files: [file], title: fname}).then(function () {
+            reportHint(true, "Отчёт готов: " + fname);
+          }, function (e) {
+            if (e && e.name === "AbortError") reportHint(false, "Отправка отменена — нажмите кнопку отчёта ещё раз.");
+            else saveReportViaLink(blob, fname);
+          });
+          return;
+        }
+      } catch (e) {}
+    }
+    saveReportViaLink(blob, fname);
+  }
+
+  function exportReportXlsx() {
     try {
-      var ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed"; ta.style.opacity = "0"; ta.style.top = "0"; ta.style.left = "0";
-      document.body.appendChild(ta);
-      ta.focus(); ta.select();
-      var ok = document.execCommand("copy");
-      document.body.removeChild(ta);
-      return ok;
-    } catch (e) { return false; }
-  }
-
-  function reportCopyDone(ok) {
-    if (ok) {
-      profileHint.textContent = "Отчёт скопирован — вставьте его в письмо или сообщение (Ctrl+V).";
-      profileHint.classList.remove("warn");
-      profileHint.classList.add("ok");
-    } else {
-      profileHint.textContent = "Не удалось скопировать автоматически. Выделите текст отчёта вручную.";
-      profileHint.classList.remove("ok");
-      profileHint.classList.add("warn");
+      var bytes = buildXlsx(buildReportSheets());
+      var blob = new Blob([bytes], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+      var d = new Date();
+      function p2(n) { return (n < 10 ? "0" : "") + n; }
+      var safe = (profile.name || "практикант").replace(/[\\/:*?"<>|]+/g, "_").trim().slice(0, 40);
+      var fname = "Отчёт_" + safe + "_" + d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + ".xlsx";
+      deliverReport(blob, fname);
+    } catch (e) {
+      reportHint(false, "Не удалось сформировать файл Excel.");
     }
   }
 
-  function downloadReport() {
+  var gateBack = document.getElementById("gateBack");
+  var gateInput = document.getElementById("gateInput");
+  var gateMsg = document.getElementById("gateMsg");
+  var gateOk = document.getElementById("gateOk");
+  var gateCancel = document.getElementById("gateCancel");
+
+  function gateLoad() {
+    try {
+      var s = JSON.parse(localStorage.getItem(GATE_KEY));
+      if (s && typeof s === "object") return {fails: +s.fails || 0, lockUntil: +s.lockUntil || 0};
+    } catch (e) {}
+    return {fails: 0, lockUntil: 0};
+  }
+
+  function gateSave(s) {
+    try { localStorage.setItem(GATE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+
+  function gateLeftText(ms) {
+    var m = Math.ceil(ms / 60000), h = Math.floor(m / 60);
+    return h + " ч " + (m % 60) + " мин";
+  }
+
+  function gateShowLocked(st) {
+    gateInput.value = "";
+    gateInput.disabled = true;
+    gateOk.disabled = true;
+    gateMsg.className = "gate-msg lock";
+    gateMsg.textContent = "Три неверные попытки — выгрузка заблокирована. Повторить можно через " + gateLeftText(st.lockUntil - Date.now()) +
+      " (после " + new Date(st.lockUntil).toLocaleString("ru-RU") + ").";
+  }
+
+  function gateClose() {
+    gateBack.classList.remove("open");
+    gateInput.value = "";
+  }
+
+  function gateOpen() {
     if (!profile.name) {
       profileNameInput.focus();
-      profileHint.textContent = "Сначала укажите имя вверху страницы, потом скопируйте отчёт ещё раз.";
+      profileHint.textContent = "Сначала укажите имя вверху страницы, потом выгружайте отчёт.";
       profileHint.classList.remove("ok");
       profileHint.classList.add("warn");
       return;
     }
-    var text = buildReportText();
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { reportCopyDone(true); }, function () { reportCopyDone(legacyCopy(text)); });
+    var st = gateLoad();
+    if (st.lockUntil && Date.now() >= st.lockUntil) {
+      st = {fails: 0, lockUntil: 0};
+      gateSave(st);
+    }
+    gateBack.classList.add("open");
+    if (st.lockUntil) {
+      gateShowLocked(st);
     } else {
-      reportCopyDone(legacyCopy(text));
+      gateInput.disabled = false;
+      gateOk.disabled = false;
+      gateInput.value = "";
+      gateMsg.className = "gate-msg";
+      gateMsg.textContent = "Осталось попыток: " + (GATE_MAX_FAILS - st.fails);
+      setTimeout(function () { gateInput.focus(); }, 30);
     }
   }
 
-  document.getElementById("downloadReportBtnQuiz").addEventListener("click", downloadReport);
-  document.getElementById("downloadReportBtnTrainer").addEventListener("click", downloadReport);
+  function gateSubmit() {
+    var st = gateLoad();
+    var now = Date.now();
+    if (st.lockUntil && now < st.lockUntil) { gateShowLocked(st); return; }
+    if (st.lockUntil) { st = {fails: 0, lockUntil: 0}; gateSave(st); }
+    var val = gateInput.value;
+    if (!val) {
+      gateMsg.className = "gate-msg err";
+      gateMsg.textContent = "Введите пароль.";
+      return;
+    }
+    if (sha256hex(GATE_SALT + val) === GATE_HASH) {
+      gateSave({fails: 0, lockUntil: 0});
+      gateClose();
+      exportReportXlsx();
+      return;
+    }
+    st.fails = (st.fails || 0) + 1;
+    if (st.fails >= GATE_MAX_FAILS) {
+      st.lockUntil = now + GATE_LOCK_MS;
+      gateSave(st);
+      gateShowLocked(st);
+      return;
+    }
+    gateSave(st);
+    gateInput.value = "";
+    gateMsg.className = "gate-msg err";
+    gateMsg.textContent = "Неверный пароль. Осталось попыток: " + (GATE_MAX_FAILS - st.fails);
+    gateInput.focus();
+  }
+
+  gateOk.addEventListener("click", gateSubmit);
+  gateCancel.addEventListener("click", gateClose);
+  gateBack.addEventListener("click", function (e) { if (e.target === gateBack) gateClose(); });
+  gateInput.addEventListener("keydown", function (e) { if (e.key === "Enter") gateSubmit(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && gateBack.classList.contains("open")) gateClose();
+  });
+
+  document.getElementById("downloadReportBtnQuiz").addEventListener("click", gateOpen);
+  document.getElementById("downloadReportBtnTrainer").addEventListener("click", gateOpen);
 
   /* ---------- lightbox ---------- */
   var lightbox = document.getElementById("lightbox");
@@ -3783,7 +4139,7 @@ var CYCLE_IMAGES = {
       renderExamUI();
       retryWrongBtn.style.display = "none";
       restartBtn.style.display = "none";
-      summaryNote.textContent = "Это был экзамен " + examLabel(finishedExamKey) + " (попытка №" + examHist.length + ") — результат зафиксирован в профиле. Пересдать можно кнопкой в блоке экзаменов выше; в отчёт идёт последняя попытка. Скопируйте отчёт и отправьте его в АФС.";
+      summaryNote.textContent = "Это был экзамен " + examLabel(finishedExamKey) + " (попытка №" + examHist.length + ") — результат зафиксирован в профиле. Пересдать можно кнопкой в блоке экзаменов выше; в отчёт идёт последняя попытка. Отчёт в Excel выгружается по паролю — его знает наставник / АФС.";
     } else {
       profile.quiz = result;
       saveProfile();
